@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kv-boot
+  labels:
+    app: kv-boot
+    aadpodidbinding: akv-identity
+spec:
+  replicas: 1
+  template:
+    metadata:
+      name: kv-boot
+      labels:
+        app: kv-boot
+        aadpodidbinding: akv-identity
+    spec:
+      containers:
+        - name: kv-boot
+          image: eggboy/kv-boot:0.0.1
+          imagePullPolicy: Always
+      restartPolicy: Always
+  selector:
+    matchLabels:
+      app: kv-boot
