@@ -1,0 +1,45 @@
+apiVersion: aadpodidentity.k8s.io/v1
+kind: AzureIdentity
+metadata:
+  name: gfg-pe-test
+  annotations:
+    aadpodidentity.k8s.io/Behavior: namespaced
+spec:
+  type: 1
+  clientID:
+  clientPassword: {"name": "gfg-pe-test", "namespace": "default"}
+  tenantID:
+---
+apiVersion: aadpodidentity.k8s.io/v1
+kind: AzureIdentityBinding
+metadata:
+  name: gfg-pe-test-binding
+spec:
+  azureIdentity: gfg-pe-test
+  selector: gfg-pe-test
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: gfg-pe-test
+data:
+  clientpassword:
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    aadpodidbinding: gfg-pe-test
+  name: gfg-pe-test
+spec:
+  containers:
+  - name: gfg-pe-test
+    image: eggboy/storage-test:0.0.1
+    imagePullPolicy: Always
+    env:
+      - name: AZURE_CLIENT_ID
+        value:
+      - name: BLOB_ACCOUNT_NAME
+        value:
+      - name: BLOB_CONTAINER_NAME
+        value:
