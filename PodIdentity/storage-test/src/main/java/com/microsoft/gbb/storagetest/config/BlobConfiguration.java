@@ -2,10 +2,13 @@ package com.microsoft.gbb.storagetest.config;
 
 import com.azure.identity.ManagedIdentityCredential;
 import com.azure.identity.ManagedIdentityCredentialBuilder;
+import com.azure.identity.UsernamePasswordCredential;
+import com.azure.identity.UsernamePasswordCredentialBuilder;
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.BlobServiceClientBuilder;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -15,23 +18,27 @@ import java.util.Locale;
 @Configuration
 public class BlobConfiguration {
 
-    @Bean
-    public BlobContainerClient blobContainerClient() {
-        String msiClientId = System.getenv("AZURE_CLIENT_ID");
-        String accountName = System.getenv("BLOB_ACCOUNT_NAME");
-        String containerName = System.getenv("BLOB_CONTAINER_NAME");
+	@Value("${azure.storage.accountName}")
+	String accountName;
 
-        ManagedIdentityCredential managedIdentityCredential = new ManagedIdentityCredentialBuilder()
-                .clientId(msiClientId)
-                .build();
+	@Bean
+	public BlobContainerClient blobContainerClient() {
+		String clientId = System.getenv("AZURE_CLIENT_ID");
+		String containerName = System.getenv("BLOB_CONTAINER_NAME");
 
-        String endpoint = String.format(Locale.ROOT, "https://%s.blob.core.windows.net", accountName);
+		// ManagedIdentityCredential managedIdentityCredential = new
+		// ManagedIdentityCredentialBuilder()
+		// .clientId(clientId)
+		// .build();
 
-        BlobServiceClient storageClient = new BlobServiceClientBuilder()
-                .endpoint(endpoint)
-                .credential(managedIdentityCredential)
-                .buildClient();
+		String endpoint = String.format(Locale.ROOT, "https://%s.blob.core.windows.net", accountName);
 
-        return storageClient.getBlobContainerClient(containerName);
-    }
+		UsernamePasswordCredential managedIdentityCredential = new UsernamePasswordCredentialBuilder().clientId(clientId)
+				.username("").password("").build();
+
+		BlobServiceClient storageClient = new BlobServiceClientBuilder().endpoint(endpoint)
+				.credential(managedIdentityCredential).buildClient();
+		return storageClient.getBlobContainerClient(containerName);
+	}
+
 }
