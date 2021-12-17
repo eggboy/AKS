@@ -4,10 +4,10 @@ AAD ROPC flow is described at
 https://docs.microsoft.com/en-us/azure/active-directory/develop/v2-oauth-ropc
 
 ROPC uses `UsernamePasswordCredential` with username password. Most importantly *This is not recommended for production environment* 
-``
+```
 		UsernamePasswordCredential managedIdentityCredential = new UsernamePasswordCredentialBuilder().clientId(clientId)
 				.username("").password("").build();
-``
+```
 Register a new app on AAD.
 ![AAD App Registration](docs/imgs/registration.png)
 
