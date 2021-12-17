@@ -25,6 +25,8 @@ public class BlobConfiguration {
 	public BlobContainerClient blobContainerClient() {
 		String clientId = System.getenv("AZURE_CLIENT_ID");
 		String containerName = System.getenv("BLOB_CONTAINER_NAME");
+		String username = System.getenv("USERNAME");
+		String password = System.getenv("PASSWORD");;
 
 		// ManagedIdentityCredential managedIdentityCredential = new
 		// ManagedIdentityCredentialBuilder()
@@ -34,7 +36,7 @@ public class BlobConfiguration {
 		String endpoint = String.format(Locale.ROOT, "https://%s.blob.core.windows.net", accountName);
 
 		UsernamePasswordCredential managedIdentityCredential = new UsernamePasswordCredentialBuilder().clientId(clientId)
-				.username("").password("").build();
+				.username(username).password(password).build();
 
 		BlobServiceClient storageClient = new BlobServiceClientBuilder().endpoint(endpoint)
 				.credential(managedIdentityCredential).buildClient();
