@@ -1,0 +1,153 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: containerd-dockerio-mirror
+  namespace: kube-system
+data:
+  registry-jaylee-cloud.crt: |
+    -----BEGIN CERTIFICATE-----
+    MIIFYTCCBEmgAwIBAgITAPpDx+HauKBeXwGyBh2xtiu+GjANBgkqhkiG9w0BAQsF
+    ADBZMQswCQYDVQQGEwJVUzEgMB4GA1UEChMXKFNUQUdJTkcpIExldCdzIEVuY3J5
+    cHQxKDAmBgNVBAMTHyhTVEFHSU5HKSBBcnRpZmljaWFsIEFwcmljb3QgUjMwHhcN
+    MjIwMzIyMTI1ODMxWhcNMjIwNjIwMTI1ODMwWjAgMR4wHAYDVQQDExVyZWdpc3Ry
+    eS5qYXlsZWUuY2xvdWQwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDg
+    FP0LGCqowdilQa9YOrvcV/TyAxAYJ3q9Zd2qpkhwRh0mUvjCqVcW8c0R230qUltB
+    AGq1sN9rxyYPMa3C5PISeD7tfpT+lpL7oeix3N6NOrGnhMZD1kSrHjCv5558B0Zy
+    n/GgyC2UjB0p7OqOSsa9B1KlFGndNmBdhx3NsBSsHW5spy6QyWi1xhmtWi9xtked
+    +U6t2qNz04V/IZs/QW3mT0e70hLJKQlxJTvCwtQAOB0mhhqejPxchK4zxwG61c47
+    YHXQvGx3DHGNxhuuBQxZmWqYyPGOQXl42dlPBDdVj9XvV5PIwW4RmoUjLFgLmtkR
+    VWjW6Hm2wSJn4ldDwDBRAgMBAAGjggJZMIICVTAOBgNVHQ8BAf8EBAMCBaAwHQYD
+    VR0lBBYwFAYIKwYBBQUHAwEGCCsGAQUFBwMCMAwGA1UdEwEB/wQCMAAwHQYDVR0O
+    BBYEFMiFalRsgRQr1JtbbEZPF+aCzAxqMB8GA1UdIwQYMBaAFN5yekjfMcOmUN+f
+    hSPfVzdLXS5lMF0GCCsGAQUFBwEBBFEwTzAlBggrBgEFBQcwAYYZaHR0cDovL3N0
+    Zy1yMy5vLmxlbmNyLm9yZzAmBggrBgEFBQcwAoYaaHR0cDovL3N0Zy1yMy5pLmxl
+    bmNyLm9yZy8wIAYDVR0RBBkwF4IVcmVnaXN0cnkuamF5bGVlLmNsb3VkMEwGA1Ud
+    IARFMEMwCAYGZ4EMAQIBMDcGCysGAQQBgt8TAQEBMCgwJgYIKwYBBQUHAgEWGmh0
+    dHA6Ly9jcHMubGV0c2VuY3J5cHQub3JnMIIBBQYKKwYBBAHWeQIEAgSB9gSB8wDx
+    AHYA3Zk0/KXnJIDJVmh9gTSZCEmySfe1adjHvKs/XMHzbmQAAAF/sewMmwAABAMA
+    RzBFAiBYrfo5qqk2WlUGT5IQz3l5gSmnGD2loExKsnH80tRBNQIhANfVI4kBDNVn
+    PW9tg7Nn3p8OlV4VBLT9JFTbNFLwwVjQAHcAsMyD5aX5fWuvfAnMKEkEhyrH6IsT
+    LGNQt8b9JuFsbHcAAAF/sewMmAAABAMASDBGAiEAxqDGjewL4OgHWBFAbMxT9PD6
+    nI++hHjgVR9zMsl4qN8CIQDg3zOXhlsINC2qWhLgBAvlGJLt9f8XXYqx6RA/Ky8I
+    sDANBgkqhkiG9w0BAQsFAAOCAQEAmvYr7BOB5kT9CAS0UqsfyRTrB76ox8RKkzEP
+    pMiAe+ZlLugw0qO5tXCN9Yppwl5uEoOFXDauATkQVu2TcN+pOPZQxDW4Hu1MtQRg
+    /CCjn2Kkp6XCr5ozq0SImzmbiU5doBmiIokXYdaimOc3Fm/lTfViiJvlIleFJjmr
+    4yDBrCNG8rQL/ANCdsl5OmN0IEFRh5Pb6Gps+SUw7y2/f2CKGIlxeZaqqrFjyQPu
+    HzcZu1mfuh3PLc8M1vfWZVWKvMn718rBs8SZ6F39rUqvuinO5VCK/QU+tsyW9NUJ
+    Bngd/e9ggvlC3Voinqt7pJ3lT5wU6NzjnoVGYwPus5uc0z9tog==
+    -----END CERTIFICATE-----
+    -----BEGIN CERTIFICATE-----
+    MIIFWzCCA0OgAwIBAgIQTfQrldHumzpMLrM7jRBd1jANBgkqhkiG9w0BAQsFADBm
+    MQswCQYDVQQGEwJVUzEzMDEGA1UEChMqKFNUQUdJTkcpIEludGVybmV0IFNlY3Vy
+    aXR5IFJlc2VhcmNoIEdyb3VwMSIwIAYDVQQDExkoU1RBR0lORykgUHJldGVuZCBQ
+    ZWFyIFgxMB4XDTIwMDkwNDAwMDAwMFoXDTI1MDkxNTE2MDAwMFowWTELMAkGA1UE
+    BhMCVVMxIDAeBgNVBAoTFyhTVEFHSU5HKSBMZXQncyBFbmNyeXB0MSgwJgYDVQQD
+    Ex8oU1RBR0lORykgQXJ0aWZpY2lhbCBBcHJpY290IFIzMIIBIjANBgkqhkiG9w0B
+    AQEFAAOCAQ8AMIIBCgKCAQEAu6TR8+74b46mOE1FUwBrvxzEYLck3iasmKrcQkb+
+    gy/z9Jy7QNIAl0B9pVKp4YU76JwxF5DOZZhi7vK7SbCkK6FbHlyU5BiDYIxbbfvO
+    L/jVGqdsSjNaJQTg3C3XrJja/HA4WCFEMVoT2wDZm8ABC1N+IQe7Q6FEqc8NwmTS
+    nmmRQm4TQvr06DP+zgFK/MNubxWWDSbSKKTH5im5j2fZfg+j/tM1bGaczFWw8/lS
+    nukyn5J2L+NJYnclzkXoh9nMFnyPmVbfyDPOc4Y25aTzVoeBKXa/cZ5MM+WddjdL
+    biWvm19f1sYn1aRaAIrkppv7kkn83vcth8XCG39qC2ZvaQIDAQABo4IBEDCCAQww
+    DgYDVR0PAQH/BAQDAgGGMB0GA1UdJQQWMBQGCCsGAQUFBwMCBggrBgEFBQcDATAS
+    BgNVHRMBAf8ECDAGAQH/AgEAMB0GA1UdDgQWBBTecnpI3zHDplDfn4Uj31c3S10u
+    ZTAfBgNVHSMEGDAWgBS182Xy/rAKkh/7PH3zRKCsYyXDFDA2BggrBgEFBQcBAQQq
+    MCgwJgYIKwYBBQUHMAKGGmh0dHA6Ly9zdGcteDEuaS5sZW5jci5vcmcvMCsGA1Ud
+    HwQkMCIwIKAeoByGGmh0dHA6Ly9zdGcteDEuYy5sZW5jci5vcmcvMCIGA1UdIAQb
+    MBkwCAYGZ4EMAQIBMA0GCysGAQQBgt8TAQEBMA0GCSqGSIb3DQEBCwUAA4ICAQCN
+    DLam9yN0EFxxn/3p+ruWO6n/9goCAM5PT6cC6fkjMs4uas6UGXJjr5j7PoTQf3C1
+    vuxiIGRJC6qxV7yc6U0X+w0Mj85sHI5DnQVWN5+D1er7mp13JJA0xbAbHa3Rlczn
+    y2Q82XKui8WHuWra0gb2KLpfboYj1Ghgkhr3gau83pC/WQ8HfkwcvSwhIYqTqxoZ
+    Uq8HIf3M82qS9aKOZE0CEmSyR1zZqQxJUT7emOUapkUN9poJ9zGc+FgRZvdro0XB
+    yphWXDaqMYph0DxW/10ig5j4xmmNDjCRmqIKsKoWA52wBTKKXK1na2ty/lW5dhtA
+    xkz5rVZFd4sgS4J0O+zm6d5GRkWsNJ4knotGXl8vtS3X40KXeb3A5+/3p0qaD215
+    Xq8oSNORfB2oI1kQuyEAJ5xvPTdfwRlyRG3lFYodrRg6poUBD/8fNTXMtzydpRgy
+    zUQZh/18F6B/iW6cbiRN9r2Hkh05Om+q0/6w0DdZe+8YrNpfhSObr/1eVZbKGMIY
+    qKmyZbBNu5ysENIK5MPc14mUeKmFjpN840VR5zunoU52lqpLDua/qIM8idk86xGW
+    xx2ml43DO/Ya/tVZVok0mO0TUjzJIfPqyvr455IsIut4RlCR9Iq0EDTve2/ZwCuG
+    hSjpTUFGSiQrR2JK2Evp+o6AETUkBCO1aw0PpQBPDQ==
+    -----END CERTIFICATE-----
+    -----BEGIN CERTIFICATE-----
+    MIIFVDCCBDygAwIBAgIRAO1dW8lt+99NPs1qSY3Rs8cwDQYJKoZIhvcNAQELBQAw
+    cTELMAkGA1UEBhMCVVMxMzAxBgNVBAoTKihTVEFHSU5HKSBJbnRlcm5ldCBTZWN1
+    cml0eSBSZXNlYXJjaCBHcm91cDEtMCsGA1UEAxMkKFNUQUdJTkcpIERvY3RvcmVk
+    IER1cmlhbiBSb290IENBIFgzMB4XDTIxMDEyMDE5MTQwM1oXDTI0MDkzMDE4MTQw
+    M1owZjELMAkGA1UEBhMCVVMxMzAxBgNVBAoTKihTVEFHSU5HKSBJbnRlcm5ldCBT
+    ZWN1cml0eSBSZXNlYXJjaCBHcm91cDEiMCAGA1UEAxMZKFNUQUdJTkcpIFByZXRl
+    bmQgUGVhciBYMTCCAiIwDQYJKoZIhvcNAQEBBQADggIPADCCAgoCggIBALbagEdD
+    Ta1QgGBWSYkyMhscZXENOBaVRTMX1hceJENgsL0Ma49D3MilI4KS38mtkmdF6cPW
+    nL++fgehT0FbRHZgjOEr8UAN4jH6omjrbTD++VZneTsMVaGamQmDdFl5g1gYaigk
+    kmx8OiCO68a4QXg4wSyn6iDipKP8utsE+x1E28SA75HOYqpdrk4HGxuULvlr03wZ
+    GTIf/oRt2/c+dYmDoaJhge+GOrLAEQByO7+8+vzOwpNAPEx6LW+crEEZ7eBXih6V
+    P19sTGy3yfqK5tPtTdXXCOQMKAp+gCj/VByhmIr+0iNDC540gtvV303WpcbwnkkL
+    YC0Ft2cYUyHtkstOfRcRO+K2cZozoSwVPyB8/J9RpcRK3jgnX9lujfwA/pAbP0J2
+    UPQFxmWFRQnFjaq6rkqbNEBgLy+kFL1NEsRbvFbKrRi5bYy2lNms2NJPZvdNQbT/
+    2dBZKmJqxHkxCuOQFjhJQNeO+Njm1Z1iATS/3rts2yZlqXKsxQUzN6vNbD8KnXRM
+    EeOXUYvbV4lqfCf8mS14WEbSiMy87GB5S9ucSV1XUrlTG5UGcMSZOBcEUpisRPEm
+    QWUOTWIoDQ5FOia/GI+Ki523r2ruEmbmG37EBSBXdxIdndqrjy+QVAmCebyDx9eV
+    EGOIpn26bW5LKerumJxa/CFBaKi4bRvmdJRLAgMBAAGjgfEwge4wDgYDVR0PAQH/
+    BAQDAgEGMA8GA1UdEwEB/wQFMAMBAf8wHQYDVR0OBBYEFLXzZfL+sAqSH/s8ffNE
+    oKxjJcMUMB8GA1UdIwQYMBaAFAhX2onHolN5DE/d4JCPdLriJ3NEMDgGCCsGAQUF
+    BwEBBCwwKjAoBggrBgEFBQcwAoYcaHR0cDovL3N0Zy1kc3QzLmkubGVuY3Iub3Jn
+    LzAtBgNVHR8EJjAkMCKgIKAehhxodHRwOi8vc3RnLWRzdDMuYy5sZW5jci5vcmcv
+    MCIGA1UdIAQbMBkwCAYGZ4EMAQIBMA0GCysGAQQBgt8TAQEBMA0GCSqGSIb3DQEB
+    CwUAA4IBAQB7tR8B0eIQSS6MhP5kuvGth+dN02DsIhr0yJtk2ehIcPIqSxRRmHGl
+    4u2c3QlvEpeRDp2w7eQdRTlI/WnNhY4JOofpMf2zwABgBWtAu0VooQcZZTpQruig
+    F/z6xYkBk3UHkjeqxzMN3d1EqGusxJoqgdTouZ5X5QTTIee9nQ3LEhWnRSXDx7Y0
+    ttR1BGfcdqHopO4IBqAhbkKRjF5zj7OD8cG35omywUbZtOJnftiI0nFcRaxbXo0v
+    oDfLD0S6+AC2R3tKpqjkNX6/91hrRFglUakyMcZU/xleqbv6+Lr3YD8PsBTub6lI
+    oZ2lS38fL18Aon458fbc0BPHtenfhKj5
+    -----END CERTIFICATE-----
+  hosts.toml: |
+    [host."https://registry.jaylee.cloud"]
+      capabilities = ["pull", "resolve"]
+      ca = "registry-jaylee-cloud.crt"
+      skip_verify = false
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: containerd-registry-config-daemon
+  namespace: kube-system
+  labels:
+    app: containerd-registry-config
+spec:
+  selector:
+    matchLabels:
+      app: containerd-registry-config
+  template:
+    metadata:
+      labels:
+        app: containerd-registry-config
+    spec:
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations:
+        - key: node-role.kubernetes.io/master
+          operator: Exists
+          effect: NoSchedule
+      containers:
+        - name: copy-files
+          image: busybox
+          command:
+            - /bin/sh
+            - -c
+            - cd /src;
+              find */* -type d ! -name '..*' -exec mkdir -pv '/etc/containerd/{}' \;;
+              find */* -type l ! -name '..*' -exec cp -v '{}' '/etc/containerd/{}' \;;
+              echo "Done copying files.";
+              sleep infinity
+          volumeMounts:
+            - name: hostcontainerd
+              mountPath: /etc/containerd
+            - name: dockerio
+              mountPath: /src/certs.d/docker.io
+      terminationGracePeriodSeconds: 0
+      volumes:
+        - name: hostcontainerd
+          hostPath:
+            path: /etc/containerd
+            type: Directory
+        - name: dockerio
+          configMap:
+            name: containerd-dockerio-mirror
