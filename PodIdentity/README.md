@@ -1,24 +1,25 @@
 # Pod Identity with AKS
 
-AAD Pod Identity is supported as an add-on for AKS clusters. https://docs.microsoft.com/en-us/azure/aks/use-azure-ad-pod-identity
+Azure Active Directory (Azure AD) pod-managed identities use Kubernetes primitives to associate managed identities for Azure resources and identities in Azure AD with pods. AAD Pod Identity is supported as an add-on for AKS clusters. https://docs.microsoft.com/en-us/azure/aks/use-azure-ad-pod-identity
 
 ```shell
-export RG=${RG}
+export RESOURCE_GROUP=sandbox-rg
 export CLUSTER_NAME=aks119
 export IDENTITY_NAME=kvidentity
 ```
+
 ## Enable Pod Identity on AKS Cluster
 
 Pod Identity can be enabled on existing cluster using `--enable-pod-identity`
 
 ```shell
-$ az aks update -g ${RG} -n rbac-cluster --enable-pod-identity
+$ az aks update -g ${RESOURCE_GROUP} -n {CLUSTER_NAME} --enable-pod-identity
 ```
 
-Create Managed Identity that will be used by Pod Identity. Then, add it to the cluster. 
+Create Managed Identity that will be used by Pod Identity. Then, add it to the cluster. You can add multiple Managed Identity to the cluster. 
 
 ```shell
-$ az identity create -g ${RG} -n ${IDENTITY_NAME} -o json
+$ az identity create -g ${RESOURCE_GROUP} -n ${IDENTITY_NAME} -o json
 {
 "clientId": "...",
 "clientSecretUrl": "...",
@@ -26,49 +27,58 @@ $ az identity create -g ${RG} -n ${IDENTITY_NAME} -o json
 "location": "southeastasia",...
 
 $ export AAD_IDENTITY_RESOURCE_ID="$(az identity show -g ${RG} -n ${IDENTITY_NAME} --query id -otsv)"
-$ az aks pod-identity add --resource-group ${RG} --cluster-name ${CLUSTER_NAME} --namespace default --name ${IDENTITY_NAME} --identity-resource-id /subscriptions/.../resourcegroups/.../providers/Microsoft.ManagedIdentity/userAssignedIdentities/kvidentity
+$ az aks pod-identity add --resource-group ${RG} --cluster-name ${CLUSTER_NAME} --namespace default --name ${IDENTITY_NAME} --identity-resource-id ${AAD_IDENTITY_RESOURCE_ID}
+```
 
+Check if two CRDs, azureidentity,azureidentitybinding are created. 
+
+```
 $ kubectl get azureidentity,azureidentitybinding
 ```
 
-## Use Key Vault CSI Driver with Pod Identity
+# Azure Key Vault with Managed Identity on AKS
 
-We will use nginx with Key Vault CSI Driver to store the certificates.
+We have enabled pod identity and configured our cluster with managed identity. For app to make use of MI, you need to label it properly. This is example of yaml for sample app hosted at https://github.com/eggboy/keyvault-mi, aadpodidbinding in the label is to bound Managed Identity with the pod. 
 
-## Create Key Vault
-
-Create Key Vault, and set policy to allow managed identity to get certificate from it.
-
-```shell
-$ az keyvault create -g ${RG} -n nginx-kv -l southeastasia --enabled-for-template-deployment true
-$ az keyvault set-policy -n nginx-kv --certificate-permissions get --object-id $AAD_IDENTITY_PRINCIPALID
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keyvault-mi
+  labels:
+    app: keyvault-mi
+spec:
+  replicas: 1
+  template:
+    metadata:
+      name: keyvault-mi
+      labels:
+        aadpodidbinding: jay-managedidentity
+        app: keyvault-mi
+    spec:
+      containers:
+        - name: keyvault-mi
+          image: eggboy/keyvault-mi:0.0.3
+          imagePullPolicy: Always
+          env:
+            - name: MANAGED_IDENTITY_CLIENT_ID
+              value:
+            - name: KEYVAULT_URI
+              value:
+      restartPolicy: Always
+  selector:
+    matchLabels:
+      app: keyvault-mi
 ```
 
-## Create AzureIdentity, AzureIdentity Binding 
+# Nginx with AKS Secret Store CSI Driver
+
+The Azure Key Vault Provider for Secrets Store CSI Driver allows for the integration of an Azure key vault as a secrets store with an Azure Kubernetes Service (AKS) cluster via a CSI volume. https://docs.microsoft.com/en-us/azure/aks/csi-secrets-store-driver
 
 ```shell
-
-
-az aks pod-identity add --resource-group ${RG} --cluster-name ${PREFIX}-aks --namespace default --name akv-identity --identity-resource-id ${AAD_IDENTITY_RESOURCE_ID}
-
-# Take a look at AAD Resources
-kubectl get azureidentity,azureidentitybinding -n default
+$ az aks enable-addons --addons azure-keyvault-secrets-provider --name ${CLUSTER_NAME} --resource-group ${RESOURCE_GROUP}
 ```
 
-## Spring Boot with Key Vault
-
-```shell
-$ az keyvault set-policy -n nginx-kv --secret-permissions get list--object-id $AAD_IDENTITY_PRINCIPALID
-```
-
-## Nginx with Key Vault CSI Driver
-
-https://docs.microsoft.com/en-us/azure/key-vault/general/key-vault-integrate-kubernetes
-
-```shell
-$ helm repo add csi-secrets-store-provider-azure https://raw.githubusercontent.com/Azure/secrets-store-csi-driver-provider-azure/master/charts
-$ helm install csi csi-secrets-store-provider-azure/csi-secrets-store-provider-azure
-```
 ## SecretProviderClass
 
 ```yaml
