@@ -38,10 +38,10 @@ jobs:
         subscription-id: ${{ secrets.SUBSCRIPTION_ID }}
     - uses: azure/setup-kubectl@v3
       name: Setup kubectl
-#    - name: Setup kubelogin
-#      uses: azure/use-kubelogin@v1
-#      with:
-#        kubelogin-version: 'v0.0.26'
+    - name: Setup kubelogin
+      uses: azure/use-kubelogin@v1
+      with:
+        kubelogin-version: 'v0.0.26'
 #    - name: Run kubectl
 #      run: |
 #        az aks get-credentials --resource-group sandbox-rg --name rbac-cluster
