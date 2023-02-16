@@ -41,6 +41,6 @@ jobs:
       name: Setup kubectl
     - name: Run kubectl
       run: |
-        az az aks get-credentials --resource-group sandbox-rg --name rbac-cluster
+        az aks get-credentials --resource-group sandbox-rg --name rbac-cluster
         kubectl get pods
 
