@@ -53,6 +53,8 @@ jobs:
       with:
         resource-group: 'sandbox-rg'
         cluster-name: 'rbac-cluster'
+        admin: 'false'
+        use-kubelogin: 'true'
     - name: Run kubectl
       run: |
         kubectl get pods
