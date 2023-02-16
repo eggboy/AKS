@@ -8,6 +8,7 @@ permissions:
   
 jobs:
   kubelogin:
+    runs-on: self-hosted
     defaults:
       run:
         shell: bash
