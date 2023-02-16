@@ -45,5 +45,6 @@ jobs:
     - name: Run kubectl
       run: |
         az aks get-credentials --resource-group sandbox-rg --name rbac-cluster
+        kubelogin convert-kubeconfig -l spn
         kubectl get pods
 
