@@ -16,6 +16,9 @@ jobs:
     defaults:
       run:
         shell: bash
+    env:
+      AAD_SERVICE_PRINCIPAL_CLIENT_ID: ${{ secrets.AAD_SERVICE_PRINCIPAL_CLIENT_ID }}
+      AAD_SERVICE_PRINCIPAL_CLIENT_SECRET: ${{ secrets.AAD_SERVICE_PRINCIPAL_CLIENT_SECRET }}
     steps:
     - name: Check out repository
       uses: actions/checkout@v3
