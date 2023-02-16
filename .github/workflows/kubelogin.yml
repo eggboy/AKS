@@ -33,9 +33,10 @@ jobs:
     - name: 'Az CLI Login'
       uses: azure/login@v1
       with:
-        client-id: ${{ secrets.CLIENT_ID }}
-        tenant-id: ${{ secrets.TENANT_ID }}
-        subscription-id: ${{ secrets.SUBSCRIPTION_ID }}
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+#        client-id: ${{ secrets.CLIENT_ID }}
+#        tenant-id: ${{ secrets.TENANT_ID }}
+#        subscription-id: ${{ secrets.SUBSCRIPTION_ID }}
     - uses: azure/setup-kubectl@v3
       name: Setup kubectl
     - name: Setup kubelogin
