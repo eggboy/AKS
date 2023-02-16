@@ -11,6 +11,8 @@ permissions:
 
 jobs:
   kubelogin:
+    name: 'kubelogin'
+    runs-on: self-hosted
     defaults:
       run:
         shell: bash
