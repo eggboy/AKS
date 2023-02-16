@@ -15,5 +15,7 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v3
+      - run: |
+          ls -la
       - name: Use local my-action
         uses: ./GithubAction/kubelogin.yml
