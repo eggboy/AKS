@@ -36,15 +36,23 @@ jobs:
         client-id: ${{ secrets.CLIENT_ID }}
         tenant-id: ${{ secrets.TENANT_ID }}
         subscription-id: ${{ secrets.SUBSCRIPTION_ID }}
-    - name: Setup kubelogin
-      uses: azure/use-kubelogin@v1
-      with:
-        kubelogin-version: 'v0.0.26'
     - uses: azure/setup-kubectl@v3
       name: Setup kubectl
+#    - name: Setup kubelogin
+#      uses: azure/use-kubelogin@v1
+#      with:
+#        kubelogin-version: 'v0.0.26'
+#    - name: Run kubectl
+#      run: |
+#        az aks get-credentials --resource-group sandbox-rg --name rbac-cluster
+#        kubelogin convert-kubeconfig -l spn
+#        kubectl get pods
+    - name: Set AKS context
+      id: set-context
+      uses: azure/aks-set-context@v3
+      with:
+        resource-group: 'sandbox-rg'
+        cluster-name: 'rbac-cluster'
     - name: Run kubectl
       run: |
-        az aks get-credentials --resource-group sandbox-rg --name rbac-cluster
-        kubelogin convert-kubeconfig -l spn
         kubectl get pods
-
