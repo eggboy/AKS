@@ -1,0 +1,30 @@
+## Trigger the workflow on push or pull request
+## events but only for the main branch
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+## Use AAD Federated Identity Authentication
+permissions:
+  id-token: write
+  contents: read
+
+## Create jobs for the Java app deployment workflow
+jobs:
+  maven:
+    name: 'Maven'
+    runs-on: self-hosted
+    defaults:
+      run:
+        shell: bash
+    steps:
+    - name: Check out repository
+      uses: actions/checkout@v3
+## install maven and java
+    - name: Install Maven
+      run: |
+        sudo apt-get update
+        sudo apt-get install maven
+    - name:
