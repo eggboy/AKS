@@ -2,6 +2,9 @@
 
 Create AKS cluster with GPU node pool.
 
+https://techcommunity.microsoft.com/t5/azure-high-performance-computing/running-gpu-accelerated-workloads-with-nvidia-gpu-operator-on/ba-p/4061318
+
+
 ```shell
 $ az aks create \
     --name gpu-cluster \
@@ -23,10 +26,13 @@ $ az aks nodepool add --resource-group sandbox-rg --cluster-name gpu-cluster --n
 
 ## Install node-feature-discovery
 
+Nvidia node-feature-discovery is used to discover GPU nodes. It is a requirement for GPU Operator.
 
 ```shell
 $ helm install --wait --create-namespace -n gpu-operator node-feature-discovery node-feature-discovery --create-namespace --repo https://kubernetes-sigs.github.io/node-feature-discovery/charts --set-json master.config.extraLabelNs='["nvidia.com"]' --set-json worker.tolerations='[{ "effect": "NoSchedule", "key": "sku", "operator": "Equal", "value": "gpu"},{"effect": "NoSchedule", "key": "mig", "value":"notReady", "operator": "Equal"}]'
 ```
+
+NodeFeatureRule is a custom resource definition (CRD) that is used to match the nodes based on the labels.
 
 ```shell
 $ kubectl apply -f - <<EOF
@@ -57,8 +63,9 @@ $ helm install --wait gpu-operator -n gpu-operator nvidia/gpu-operator --set-jso
 
 ## Configuring Time Slicing
 
+Nvidia 
 ```shell
-$ az aks nodepool update --cluster-name rbac-cluster --resource-group sandbox-rg --nodepool-name nc24ads --labels "nvidia.com/device-plugin.config=tesla-t4-ts2"
+$ az aks nodepool update --cluster-name rbac-cluster --resource-group sandbox-rg --nodepool-name nc24ads --labels "nvidia.com/device-plugin.config=nvidia-a100"
 
 $ kubectl apply -f - <<EOF
 apiVersion: v1
@@ -81,9 +88,17 @@ EOF
 $ kubectl patch clusterpolicies.nvidia.com/cluster-policy -n gpu-operator --type merge -p '{"spec": {"devicePlugin": {"config": {"name": "time-slicing-config-all", "default": "any"}}}}'
 ```
 
+Once cluster-policy is changed, Both gpu-feature-discovery and nvidia-device-plugin-daemonset pods will be restarted. If it doesnt' restart, restart the pods manually.
+
+```shell
+$ kubectl get events -n gpu-operator --sort-by='.lastTimestamp'
+```
+
 Validate the GPU configuration. We should see the GPU replicas set to 4.
 
 ```shell
 $ kubectl describe node aks-nc24ads-14356471-vmss000000 | grep replica
       nvidia.com/gpu.replicas=4     
 ```
+
+## Configuring MIG
