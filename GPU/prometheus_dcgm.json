@@ -86,7 +86,7 @@
           "expr": "DCGM_FI_DEV_GPU_TEMP{hostname=~\"${Hostname}\",gpu_i_id=~\"${GPU_I_ID}\"}",
           "instant": false,
           "interval": "",
-          "legendFormat": "GPU {{gpu}}",
+          "legendFormat": "GPU_I_ID {{gpu_i_id}}",
           "refId": "A"
         }
       ],
@@ -251,7 +251,7 @@
           "editorMode": "code",
           "expr": "DCGM_FI_DEV_POWER_USAGE{hostname=~\"${Hostname}\",gpu_i_id=~\"${GPU_I_ID}\"}",
           "interval": "",
-          "legendFormat": "GPU {{gpu}}",
+          "legendFormat": "GPU_I_ID {{gpu_i_id}}",
           "range": true,
           "refId": "A"
         }
@@ -382,12 +382,10 @@
         "y": 16
       },
       "hiddenSeries": false,
-      "id": 2,
-      "interval": "",
+      "id": 18,
       "legend": {
-        "alignAsTable": true,
         "avg": true,
-        "current": true,
+        "current": false,
         "max": true,
         "min": false,
         "rightSide": true,
@@ -417,18 +415,16 @@
             "uid": "azmw-jay-eastus"
           },
           "editorMode": "code",
-          "expr": "DCGM_FI_DEV_SM_CLOCK{hostname=~\"${Hostname}\",gpu_i_id=~\"${GPU_I_ID}\"} * 1000000",
-          "format": "time_series",
+          "expr": "DCGM_FI_DEV_FB_USED{hostname=~\"${Hostname}\",gpu_i_id=~\"${GPU_I_ID}\"}",
           "interval": "",
-          "intervalFactor": 1,
-          "legendFormat": "GPU {{gpu}}",
+          "legendFormat": "GPU_I_ID {{gpu_i_id}}",
           "range": true,
           "refId": "A"
         }
       ],
       "thresholds": [],
       "timeRegions": [],
-      "title": "GPU SM Clocks",
+      "title": "GPU Framebuffer Mem Used",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -442,8 +438,7 @@
       },
       "yaxes": [
         {
-          "format": "hertz",
-          "label": "",
+          "format": "decmbytes",
           "logBase": 1,
           "show": true
         },
@@ -517,7 +512,7 @@
           "editorMode": "code",
           "expr": "DCGM_FI_PROF_PIPE_TENSOR_ACTIVE{hostname=~\"${Hostname}\",gpu_i_id=~\"${GPU_I_ID}\"}",
           "interval": "",
-          "legendFormat": "GPU {{gpu}}",
+          "legendFormat": "GPU_I_ID {{gpu_i_id}}",
           "range": true,
           "refId": "A"
         }
@@ -575,6 +570,105 @@
         "h": 8,
         "w": 12,
         "x": 0,
+        "y": 24
+      },
+      "hiddenSeries": false,
+      "id": 2,
+      "interval": "",
+      "legend": {
+        "alignAsTable": true,
+        "avg": true,
+        "current": true,
+        "max": true,
+        "min": false,
+        "rightSide": true,
+        "show": true,
+        "total": false,
+        "values": true
+      },
+      "lines": true,
+      "linewidth": 2,
+      "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
+      "percentage": false,
+      "pluginVersion": "9.5.17",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "azmw-jay-eastus"
+          },
+          "editorMode": "code",
+          "expr": "DCGM_FI_DEV_SM_CLOCK{hostname=~\"${Hostname}\",gpu_i_id=~\"${GPU_I_ID}\"} * 1000000",
+          "format": "time_series",
+          "interval": "",
+          "intervalFactor": 1,
+          "legendFormat": "GPU_I_ID {{gpu_i_id}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeRegions": [],
+      "title": "GPU SM Clocks",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "mode": "time",
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "hertz",
+          "label": "",
+          "logBase": 1,
+          "show": true
+        },
+        {
+          "format": "short",
+          "logBase": 1,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "azmw-jay-eastus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "links": []
+        },
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
         "y": 24
       },
       "hiddenSeries": false,
@@ -639,100 +733,6 @@
           "logBase": 1,
           "max": "100",
           "min": "0",
-          "show": true
-        },
-        {
-          "format": "short",
-          "logBase": 1,
-          "show": true
-        }
-      ],
-      "yaxis": {
-        "align": false
-      }
-    },
-    {
-      "aliasColors": {},
-      "bars": false,
-      "dashLength": 10,
-      "dashes": false,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "azmw-jay-eastus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "links": []
-        },
-        "overrides": []
-      },
-      "fill": 1,
-      "fillGradient": 0,
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 24
-      },
-      "hiddenSeries": false,
-      "id": 18,
-      "legend": {
-        "avg": true,
-        "current": false,
-        "max": true,
-        "min": false,
-        "rightSide": true,
-        "show": true,
-        "total": false,
-        "values": true
-      },
-      "lines": true,
-      "linewidth": 2,
-      "nullPointMode": "null",
-      "options": {
-        "alertThreshold": true
-      },
-      "percentage": false,
-      "pluginVersion": "9.5.17",
-      "pointradius": 2,
-      "points": false,
-      "renderer": "flot",
-      "seriesOverrides": [],
-      "spaceLength": 10,
-      "stack": false,
-      "steppedLine": false,
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "azmw-jay-eastus"
-          },
-          "editorMode": "code",
-          "expr": "DCGM_FI_DEV_FB_USED{hostname=~\"${Hostname}\",gpu_i_id=~\"${GPU_I_ID}\"}",
-          "interval": "",
-          "legendFormat": "GPU {{gpu}}",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "thresholds": [],
-      "timeRegions": [],
-      "title": "GPU Framebuffer Mem Used",
-      "tooltip": {
-        "shared": true,
-        "sort": 0,
-        "value_type": "individual"
-      },
-      "type": "graph",
-      "xaxis": {
-        "mode": "time",
-        "show": true,
-        "values": []
-      },
-      "yaxes": [
-        {
-          "format": "decmbytes",
-          "logBase": 1,
           "show": true
         },
         {
@@ -837,6 +837,6 @@
   "timezone": "",
   "title": "NVIDIA DCGM Exporter Dashboard",
   "uid": "Oxed_c6Wz",
-  "version": 5,
+  "version": 6,
   "weekStart": ""
 }
