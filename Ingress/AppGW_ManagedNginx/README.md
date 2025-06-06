@@ -3,15 +3,28 @@
 This document provides a guide on how to configure a Managed Nginx Ingress Controller with Azure Application Gateway in an Azure Kubernetes Service (AKS) cluster. The setup includes using Azure Key Vault for TLS certificates and configuring the ingress resources.
 In the example, I assume that you have two subdomains, `external-subdomain1.jaylee.cloud` and `external-subdomain2.jaylee.cloud`, which will be used to route traffic to two different applications running in the AKS cluster. Certificates for these subdomains are stored in Azure Key Vault, and the ingress controller is configured to use these certificates for TLS termination.
 
-## Enable Managed Nginx Ingress Controller
+## Configure Managed Nginx Ingress Controller
 
-[Advanced NGINX ingress controller and ingress configurations with the application routing add-on](https://learn.microsoft.com/en-us/azure/aks/app-routing-nginx-configuration?tabs=azurecli).
+### Enable Application Routing Add-on on AKS
 
-Make sure to control the default NGINX ingress controller not to have public IP by setting `DefaultIngressControllerType` as below. 
+You can enable the Application Routing add-on when creating an AKS cluster or update an existing cluster.
 
-```bash
-az aks approuting update --resource-group <ResourceGroupName> --name <ClusterName> --nginx Internal
+[Enable on a new cluster or existing cluster](https://learn.microsoft.com/en-us/azure/aks/app-routing#enable-application-routing-using-azure-cli)
 
+### Create Internal NGINX Ingress Controller
+
+Create an internal NGINX Ingress Controller using the `NginxIngressController` custom resource definition (CRD). This controller will handle internal traffic routing within the AKS cluster.
+
+```yaml
+apiVersion: approuting.kubernetes.azure.com/v1alpha1
+kind: NginxIngressController
+metadata:
+  name: nginx-internal
+spec:
+  ingressClassName: nginx-internal
+  controllerNamePrefix: nginx-internal
+  loadBalancerAnnotations:
+    service.beta.kubernetes.io/azure-load-balancer-internal: "true"
 ```
 
 ## Ingress with subdomain and Path based routing
@@ -104,5 +117,7 @@ Ideally, you could setup a custom health probe for Nginx ingress controller itse
 ![Application Gateway Health Probe](img/rules.png)
 
 ### Test
+
+Access the application using the subdomain `external-subdomain2.jaylee.cloud` and you should see the response from the application.
 
 ![Application Gateway Health Probe](img/test.png)
