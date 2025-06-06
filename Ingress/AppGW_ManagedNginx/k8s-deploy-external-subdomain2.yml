@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: external-app2
+  labels:
+    app: external-app2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: external-app2
+  template:
+    metadata:
+      name: external-app2
+      labels:
+        app: external-app2
+    spec:
+      containers:
+        - name: external-app2
+          image: eggboy/echo-app:0.0.1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+              protocol: TCP
+          env:
+            - name: APP_NAME
+              value: "External Subdomain2"
+      restartPolicy: Always

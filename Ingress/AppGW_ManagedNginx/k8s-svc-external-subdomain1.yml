@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: external-app1
+spec:
+  selector:
+    app: external-app1
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    kubernetes.azure.com/tls-cert-keyvault-uri: https://kv-jay-eastus.vault.azure.net/certificates/aks-ingress-jaylee-cloud-cert
+  name: external-app1
+spec:
+  ingressClassName: nginx-internal
+  rules:
+    - host: external-subdomain1.jaylee.cloud
+      http:
+        paths:
+          - backend:
+              service:
+                name: external-app1
+                port:
+                  number: 80
+            path: /
+            pathType: Prefix
+  tls:
+    - hosts:
+        - external-subdomain1.jaylee.cloud
+      secretName: keyvault-external-app1
