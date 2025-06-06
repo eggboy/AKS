@@ -14,34 +14,58 @@ az aks approuting update --resource-group <ResourceGroupName> --name <ClusterNam
 
 ```
 
-## Ingress 
+## Ingress with subdomain and Path based routing
 
 Be aware that `kubernetes.azure.com/tls-cert-keyvault-uri` annotation creates a secret in the cluster with the name `keyvault-<ingress-name>`.
 
+This is an example of how to configure the ingress resources for two applications, `external-app1` and `external-app2`, with path-based routing and TLS termination using Azure Key Vault.
+
 ```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: external-app2-a
+spec:
+  selector:
+    app: external-app2-a
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: ClusterIP
+---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   annotations:
     kubernetes.azure.com/tls-cert-keyvault-uri: https://kv-jay-eastus.vault.azure.net/certificates/aks-ingress-jaylee-cloud-cert
-  name: external-app1
+    nginx.ingress.kubernetes.io/rewrite-target: /
+  name: external-app2
 spec:
   ingressClassName: nginx-internal
   rules:
-    - host: external-subdomain1.jaylee.cloud
+    - host: external-subdomain2.jaylee.cloud
       http:
         paths:
           - backend:
               service:
-                name: external-app1
+                name: external-app2
                 port:
                   number: 80
             path: /
             pathType: Prefix
+          - path: /patha
+            pathType: Prefix
+            backend:
+              service:
+                name: external-app2-a
+                port:
+                  number: 80
   tls:
     - hosts:
-        - external-subdomain1.jaylee.cloud
-      secretName: keyvault-external-app1
+        - external-subdomain2.jaylee.cloud
+      secretName: keyvault-external-app2
+
 ```
 
 ## Application Gateway 
