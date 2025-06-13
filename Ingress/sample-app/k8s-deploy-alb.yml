@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alb-app
+  labels:
+    app: alb-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: alb-app
+  template:
+    metadata:
+      name: alb-app
+      labels:
+        app: alb-app
+    spec:
+      containers:
+        - name: alb-app
+          image: eggboy/echo-app:0.0.1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+              protocol: TCP
+          env:
+            - name: APP_NAME
+              value: "ALB APP"
+      restartPolicy: Always

@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agic-app
+  labels:
+    app: agic-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: agic-app
+  template:
+    metadata:
+      name: agic-app
+      labels:
+        app: agic-app
+    spec:
+      containers:
+        - name: agic-app
+          image: eggboy/echo-app:0.0.1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+              protocol: TCP
+          env:
+            - name: APP_NAME
+              value: "AGIC APP"
+      restartPolicy: Always

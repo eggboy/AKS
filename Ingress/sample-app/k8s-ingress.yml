@@ -1,0 +1,23 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    kubernetes.azure.com/tls-cert-keyvault-uri: https://kv-jay-eastus.vault.azure.net/certificates/aks-ingress-jaylee-cloud-cert
+  name: external-app
+spec:
+  ingressClassName: nginx-internal
+  rules:
+    - host: external-appgw.jaylee.cloud
+      http:
+        paths:
+          - backend:
+              service:
+                name: external-app
+                port:
+                  number: 80
+            path: /
+            pathType: Prefix
+  tls:
+    - hosts:
+        - external-appgw.jaylee.cloud
+      secretName: keyvault-external-app

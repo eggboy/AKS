@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: internal-app
+  labels:
+    app: internal-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: internal-app
+  template:
+    metadata:
+      name: internal-app
+      labels:
+        app: internal-app
+    spec:
+      containers:
+        - name: internal-app
+          image: eggboy/echo-app:0.0.1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+              protocol: TCP
+          env:
+            - name: APP_NAME
+              value: "Internal App"
+      restartPolicy: Always
