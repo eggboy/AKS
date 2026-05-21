@@ -321,7 +321,8 @@ aks-nodepool1-27425191-vmss000005   Ready    <none>   32m   v1.34.7   10.0.1.4  
 aks-userpool1-42241789-vmss00000b   Ready    <none>   32m   v1.34.7   10.0.7.4       <none>        Ubuntu 24.04.4 LTS   6.8.0-1052-azure    containerd://2.1.6-2
 aks-userpool1-42241789-vmss00000c   Ready    <none>   29m   v1.34.7   10.0.7.5       <none>        Ubuntu 24.04.4 LTS   6.8.0-1052-azure    containerd://2.1.6-2
 aks-userpool1-42241789-vmss00000d   Ready    <none>   26m   v1.34.7   10.0.7.6       <none>        Ubuntu 24.04.4 LTS   6.8.0-1052-azure    containerd://2.1.6-2
-ip-172-31-18-36                     Ready    <none>   23s   v1.34.7   172.31.18.36   <none>        Ubuntu 24.04.4 LTS   6.17.0-1015-aws     containerd://2.0.4
+flexnode-vm-01                      Ready    <none>   27m   v1.34.7   10.0.0.4       <none>        Ubuntu 24.04.4 LTS   6.17.0-1013-azure   containerd://2.0.4
+ip-172-31-18-36                     Ready    <none>   38s   v1.34.7   172.31.18.36   <none>        Ubuntu 24.04.4 LTS   6.17.0-1015-aws     containerd://2.0.4
 ```
 
 Last row is the EC2 instance. `ip-172-31-18-36` is the AWS-default hostname, `172.31.18.36` is the EC2 private IP inside the default VPC, and the `6.17.0-1015-aws` kernel string is proof that an AWS-hosted node is now serving an Azure-managed cluster. Status `Ready`, version matches the rest of the cluster at `v1.34.7`.
