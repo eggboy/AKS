@@ -36,9 +36,10 @@ metadata:
 # Pods in the target cluster must never mount this SA. It exists only so its
 # token can be exported into a kubeconfig consumed by an external ArgoCD.
 automountServiceAccountToken: false
-# Reference the long-lived token Secret below so that tools which discover
-# tokens via `.serviceAccount.secrets[]` (including the fallback path in
-# `kubeconfig_generator.py`) can find it.
+# Reference the long-lived token Secret below so that `kubeconfig_generator.py`'s
+# default discovery path (which walks `.serviceAccount.secrets[]` looking for a
+# `kubernetes.io/service-account-token` type) resolves cleanly without needing
+# the namespace-scan fallback.
 secrets:
   - name: argocd-manager-token
 ---

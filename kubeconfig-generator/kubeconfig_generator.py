@@ -17,8 +17,7 @@ to Kubernetes using a ServiceAccount identity and its associated RBAC permission
 from __future__ import annotations
 
 import base64
-import os
-import shutil
+import logging
 import subprocess
 import sys
 from dataclasses import dataclass, field
@@ -29,6 +28,12 @@ import tyro
 import yaml
 from kubernetes import client, config
 from kubernetes.client.rest import ApiException
+
+logger = logging.getLogger(__name__)
+
+
+class KubeconfigGeneratorError(Exception):
+    """Raised when a kubeconfig cannot be generated from the available inputs."""
 
 
 def default_kubeconfig_path() -> str:
@@ -58,99 +63,168 @@ class Config:
     kubeconfig_path: Annotated[str, tyro.conf.arg(metavar="PATH")] = field(default_factory=default_kubeconfig_path)
     """Path to the kubeconfig file."""
     token_expiry_hours: Annotated[int, tyro.conf.arg(metavar="HOURS")] = 8760
-    """Token expiry in hours (8760 = 1 year)."""
+    """TokenRequest expiry in hours, used only when falling back to `kubectl create token`."""
+    prefer_long_lived_token: Annotated[bool, tyro.conf.arg(metavar="BOOL")] = True
+    """Prefer the SA's long-lived `kubernetes.io/service-account-token` Secret (ArgoCD's documented model).
+
+    When True (default), look up a token from the SA's referenced Secret and only
+    fall back to `kubectl create token` (TokenRequest, ≤1y) if no such Secret
+    exists. When False, the legacy ordering is used: TokenRequest first, Secret
+    only as a fallback.
+    """
 
 
 def load_kubeconfig_file(kubeconfig_path: str) -> dict[str, Any]:
     """Load kubeconfig from file."""
-    with open(kubeconfig_path) as f:
+    with open(kubeconfig_path, encoding="utf-8") as f:
         return yaml.safe_load(f)
 
 
 def save_kubeconfig_file(kubeconfig: dict[str, Any], output_path: str) -> None:
-    """Save kubeconfig to file."""
+    """Save kubeconfig to file with 0600 permissions."""
     output = Path(output_path)
     output.parent.mkdir(parents=True, exist_ok=True)
 
-    with open(output, "w") as f:
+    with open(output, "w", encoding="utf-8") as f:
         yaml.safe_dump(kubeconfig, f, default_flow_style=False)
 
-    # Set file permissions to 0600 (rw-------)
     output.chmod(0o600)
 
 
-def create_token_with_kubectl(cfg: Config) -> str | None:
-    """Try to create a token using kubectl command."""
-    try:
-        args = ["kubectl", "create", "token", cfg.service_account_name, "-n", cfg.namespace]
+SA_TOKEN_SECRET_TYPE = "kubernetes.io/service-account-token"  # noqa: S105 - Kubernetes Secret type identifier, not a credential
+SA_NAME_ANNOTATION = "kubernetes.io/service-account.name"
 
-        if cfg.kubeconfig_path:
-            args.append(f"--kubeconfig={cfg.kubeconfig_path}")
 
-        args.append(f"--duration={cfg.token_expiry_hours}h")
-
-        result = subprocess.run(args, capture_output=True, text=True, check=True)
-        return result.stdout.strip()
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        # This is expected to fail on older Kubernetes versions or if kubectl is not available
+def _decode_token(secret: client.V1Secret) -> str | None:
+    """Return the decoded bearer token from a service-account-token Secret, or None."""
+    if secret.type != SA_TOKEN_SECRET_TYPE:
         return None
+    data = secret.data or {}
+    token = data.get("token")
+    if not token:
+        return None
+    return base64.b64decode(token).decode("utf-8")
 
 
 def get_token_from_secret(v1: client.CoreV1Api, cfg: Config) -> str:
-    """Get a token from the service account's secret."""
-    # Get ServiceAccount to find its secrets
+    """Return a long-lived token from the ServiceAccount's token Secret.
+
+    Looks for a token in this order:
+      1. Secrets referenced by `serviceaccount.secrets[]` whose type is
+         `kubernetes.io/service-account-token`.
+      2. Any Secret in the SA's namespace annotated with
+         `kubernetes.io/service-account.name=<sa>` (covers the modern case
+         where the SA does not auto-reference its token Secret).
+
+    Raises:
+        KubeconfigGeneratorError: if no populated token Secret is found.
+    """
     sa = v1.read_namespaced_service_account(cfg.service_account_name, cfg.namespace)
 
-    # Check if the ServiceAccount has any secrets
-    if not sa.secrets:
-        raise ValueError("Service account has no secrets")
+    for ref in sa.secrets or []:
+        try:
+            secret = v1.read_namespaced_secret(ref.name, cfg.namespace)
+        except ApiException:
+            continue
+        token = _decode_token(secret)
+        if token:
+            return token
 
-    # Get the first secret (token secret)
-    secret_name = sa.secrets[0].name
-    secret = v1.read_namespaced_secret(secret_name, cfg.namespace)
+    secret_list = v1.list_namespaced_secret(cfg.namespace)
+    for secret in secret_list.items:
+        if secret.type != SA_TOKEN_SECRET_TYPE:
+            continue
+        annotations = (secret.metadata.annotations or {}) if secret.metadata else {}
+        if annotations.get(SA_NAME_ANNOTATION) != cfg.service_account_name:
+            continue
+        token = _decode_token(secret)
+        if token:
+            return token
 
-    # Get token from secret
-    if "token" not in secret.data:
-        raise ValueError(f"Token not found in secret {secret_name}")
+    raise KubeconfigGeneratorError(
+        f"No populated service-account-token Secret found for "
+        f"{cfg.namespace}/{cfg.service_account_name}. Create one with "
+        f"`type: kubernetes.io/service-account-token` and the "
+        f"`{SA_NAME_ANNOTATION}` annotation, then wait for the TokenController "
+        f"to populate `.data.token`."
+    )
 
-    token_data = secret.data["token"]
-    # Decode from base64
-    return base64.b64decode(token_data).decode("utf-8")
+
+def create_token_with_kubectl(cfg: Config) -> str | None:
+    """Try to create a short-lived token using `kubectl create token` (TokenRequest API).
+
+    Returns the token string on success, or None if kubectl is unavailable or
+    the cluster rejected the request (e.g. on older Kubernetes versions).
+    """
+    args = ["kubectl", "create", "token", cfg.service_account_name, "-n", cfg.namespace]
+
+    if cfg.kubeconfig_path:
+        args.append(f"--kubeconfig={cfg.kubeconfig_path}")
+
+    args.append(f"--duration={cfg.token_expiry_hours}h")
+
+    try:
+        # subprocess.run with a fixed argv list (no shell=True); kubectl is a
+        # known binary and values come from validated CLI flags.
+        result = subprocess.run(args, capture_output=True, text=True, check=True)  # noqa: S603
+        return result.stdout.strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return None
 
 
 def get_service_account_token(v1: client.CoreV1Api, cfg: Config) -> str:
-    """Get a token for the service account."""
-    # First, try to use kubectl to create a token (for newer Kubernetes versions)
+    """Get a token for the service account.
+
+    Default (cfg.prefer_long_lived_token=True): use the SA's long-lived token
+    Secret first — this matches ArgoCD's documented external-cluster
+    registration model, where the registration is persistent and a TokenRequest
+    token (capped at ~1 year on most clusters) would silently expire.
+
+    Legacy ordering (cfg.prefer_long_lived_token=False): TokenRequest first,
+    Secret only as a fallback.
+
+    Raises:
+        KubeconfigGeneratorError: if no usable token can be obtained.
+        ApiException: if the Kubernetes API is unreachable.
+    """
+    if cfg.prefer_long_lived_token:
+        try:
+            return get_token_from_secret(v1, cfg)
+        except (KubeconfigGeneratorError, ApiException):
+            token = create_token_with_kubectl(cfg)
+            if token:
+                return token
+            raise
+
     token = create_token_with_kubectl(cfg)
     if token:
         return token
-
-    # Fall back to getting a token from a secret (for older Kubernetes versions)
     return get_token_from_secret(v1, cfg)
 
 
 def generate_kubeconfig(cfg: Config) -> None:
-    """Generate kubeconfig file for a service account."""
-    # Load the current kubeconfig file
+    """Generate kubeconfig file for a service account.
+
+    Raises:
+        KubeconfigGeneratorError: if the source kubeconfig is malformed,
+            the ServiceAccount cannot be located, or no token is available.
+    """
     current_kubeconfig = load_kubeconfig_file(cfg.kubeconfig_path)
 
-    # Load the Kubernetes configuration
     config.load_kube_config(config_file=cfg.kubeconfig_path)
 
-    # Create Kubernetes API client
     v1 = client.CoreV1Api()
 
-    # Get current context and cluster info
     current_context_name = current_kubeconfig.get("current-context")
     if not current_context_name:
-        raise ValueError("No current context found")
+        raise KubeconfigGeneratorError("No current context found")
 
     current_context = next(
         (ctx for ctx in current_kubeconfig["contexts"] if ctx["name"] == current_context_name),
         None,
     )
     if not current_context:
-        raise ValueError(f"Context {current_context_name} not found")
+        raise KubeconfigGeneratorError(f"Context {current_context_name} not found")
 
     current_cluster_name = current_context["context"]["cluster"]
     current_cluster = next(
@@ -158,33 +232,27 @@ def generate_kubeconfig(cfg: Config) -> None:
         None,
     )
     if not current_cluster:
-        raise ValueError(f"Cluster {current_cluster_name} not found")
+        raise KubeconfigGeneratorError(f"Cluster {current_cluster_name} not found")
 
-    # Set default cluster name if not provided
     if cfg.cluster_name == "auto":
         cfg.cluster_name = current_cluster_name
 
-    # Set default API server if not provided
     if cfg.api_server == "auto":
         cfg.api_server = current_cluster["cluster"]["server"]
 
-    # Verify the ServiceAccount exists
     try:
         v1.read_namespaced_service_account(cfg.service_account_name, cfg.namespace)
     except ApiException as e:
-        raise ValueError(
+        raise KubeconfigGeneratorError(
             f"Failed to get ServiceAccount {cfg.service_account_name} in namespace {cfg.namespace}: {e}"
         ) from e
 
-    # Get service account token
     token = get_service_account_token(v1, cfg)
 
-    # Create a new kubeconfig
     new_cluster: dict[str, Any] = {
         "server": cfg.api_server,
     }
 
-    # Add CA certificate data if available
     cluster_data = current_cluster["cluster"]
     if "certificate-authority-data" in cluster_data:
         new_cluster["certificate-authority-data"] = cluster_data["certificate-authority-data"]
@@ -193,12 +261,12 @@ def generate_kubeconfig(cfg: Config) -> None:
         try:
             ca_data = ca_path.read_bytes()
             new_cluster["certificate-authority-data"] = base64.b64encode(ca_data).decode("utf-8")
-        except Exception as e:
-            print(f"Warning: Failed to read CA certificate: {e}")
-            print("Setting insecure-skip-tls-verify: true")
+        except OSError as e:
+            logger.warning("Failed to read CA certificate at %s: %s", ca_path, e)
+            logger.warning("Setting insecure-skip-tls-verify: true")
             new_cluster["insecure-skip-tls-verify"] = True
     else:
-        print("Warning: No CA certificate data found. Setting insecure-skip-tls-verify: true")
+        logger.warning("No CA certificate data found. Setting insecure-skip-tls-verify: true")
         new_cluster["insecure-skip-tls-verify"] = True
 
     new_kubeconfig = {
@@ -229,15 +297,15 @@ def generate_kubeconfig(cfg: Config) -> None:
         "current-context": cfg.context_name,
     }
 
-    # Save the kubeconfig to file
     save_kubeconfig_file(new_kubeconfig, cfg.output_path)
 
 
 def main() -> None:
     """Main entry point."""
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+
     cfg = tyro.cli(Config)
 
-    # Apply defaults for optional fields
     if cfg.output_path == "auto":
         cfg.output_path = f"kubeconfig-{cfg.service_account_name}"
     if cfg.context_name == "auto":
@@ -245,12 +313,13 @@ def main() -> None:
 
     try:
         generate_kubeconfig(cfg)
-        abs_path = Path(cfg.output_path).resolve()
-        print(f"Kubeconfig file created at: {abs_path}")
-        print(f"Use with: export KUBECONFIG={abs_path}")
-    except Exception as e:
-        print(f"Error generating kubeconfig: {e}", file=sys.stderr)
+    except (KubeconfigGeneratorError, ApiException, OSError) as e:
+        logger.error("Error generating kubeconfig: %s", e)
         sys.exit(1)
+
+    abs_path = Path(cfg.output_path).resolve()
+    print(f"Kubeconfig file created at: {abs_path}")
+    print(f"Use with: export KUBECONFIG={abs_path}")
 
 
 if __name__ == "__main__":

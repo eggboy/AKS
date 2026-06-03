@@ -1,8 +1,45 @@
-# ArgoCD external-cluster RBAC
+# kubeconfig-generator
 
-Kubernetes manifests that provision the `argocd-manager` ServiceAccount and
-RBAC that ArgoCD (running in a separate cluster) uses to manage **this** target
-cluster.
+Two things live in this directory:
+
+1. **`kubeconfig_generator.py`** — a general-purpose CLI that issues a
+   kubeconfig authenticating as a Kubernetes ServiceAccount. Useful any time
+   you want a bearer-token kubeconfig for an application, CI job, or external
+   tool instead of a user identity.
+2. **`argocd/`** — opinionated RBAC manifests (`argocd-manager` SA + binding +
+   long-lived token Secret) for using one such SA as ArgoCD's
+   external-cluster manager. This is the canonical worked example.
+
+---
+
+## 1. Generate a kubeconfig for any ServiceAccount
+
+```bash
+./kubeconfig_generator.py -sa <sa-name> -n <sa-namespace>
+# writes ./kubeconfig-<sa-name> (mode 0600)
+```
+
+The script is a [PEP 723 inline-metadata uv-run script](https://peps.python.org/pep-0723/) —
+it self-installs its dependencies on first invocation (requires `uv`).
+
+By default it uses the **long-lived token** from a `kubernetes.io/service-account-token`
+Secret that the SA references (or that is annotated with
+`kubernetes.io/service-account.name=<sa>`). If no such Secret exists, it falls
+back to `kubectl create token` (TokenRequest, expires after `--token-expiry-hours`,
+default 8760h ≈ 1y).
+
+Pass `--no-prefer-long-lived-token` to invert that ordering — useful when you
+*want* a short-lived rotating token.
+
+Run `./kubeconfig_generator.py --help` for the full flag list (custom context
+name, cluster name, output path, API server URL, source kubeconfig path, …).
+
+---
+
+## 2. ArgoCD external-cluster RBAC
+
+Manifests that provision the `argocd-manager` ServiceAccount and RBAC that
+ArgoCD (running in a separate cluster) uses to manage **this** target cluster.
 
 Two flavours are provided:
 
@@ -17,33 +54,67 @@ Two flavours are provided:
 > `argocd/rbac.yaml` is the least restrictive needed for the chosen scope, not
 > least privilege in the narrow security sense.
 
-## Quick start
+### Quick start
 
 ```bash
 # 1. Apply the RBAC to the TARGET cluster (the one ArgoCD will manage).
-kubectl apply -f argocd/rbac.yaml          # or: argocd/rbac-hardened.yaml
+RBAC=argocd/rbac.yaml          # or: argocd/rbac-hardened.yaml
+kubectl apply -f "$RBAC"
 
 # 2. Wait until the TokenController populates the Secret.
 kubectl -n argocd wait --for=jsonpath='{.data.token}' \
   secret/argocd-manager-token --timeout=60s
 
 # 3. Generate a kubeconfig with the project's generator.
+#    Default behaviour: reads the long-lived token from the Secret above —
+#    this matches ArgoCD's external-cluster registration model and never expires.
 ./kubeconfig_generator.py -sa argocd-manager -n argocd
 
 # 4. Register the cluster with ArgoCD (run against ArgoCD's host cluster).
+#    The --service-account / --system-namespace flags tell `argocd cluster add`
+#    to REUSE the SA we just created instead of creating a new (unbound) one
+#    in kube-system, which is the CLI's default behaviour.
 argocd cluster add argocd-manager-context \
   --kubeconfig ./kubeconfig-argocd-manager \
+  --service-account argocd-manager \
+  --system-namespace argocd \
   --name <friendly-cluster-name>
 ```
 
-To extract the long-lived token manually instead of using the generator:
+> ⚠️ If you omit `--service-account` and `--system-namespace`, the ArgoCD CLI
+> will create a fresh `argocd-manager` SA in `kube-system` with no
+> ClusterRoleBinding — every subsequent sync will then fail with `403 Forbidden`.
+
+#### Alternative: register without the ArgoCD CLI
+
+Construct the ArgoCD cluster Secret directly in ArgoCD's own namespace
+(typically `argocd` on the ArgoCD host cluster):
 
 ```bash
-kubectl -n argocd get secret argocd-manager-token \
-  -o jsonpath='{.data.token}' | base64 -d
+TOKEN=$(kubectl -n argocd get secret argocd-manager-token \
+  -o jsonpath='{.data.token}' | base64 -d)
+CA=$(kubectl -n argocd get secret argocd-manager-token \
+  -o jsonpath='{.data.ca\.crt}')
+SERVER=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')
+
+# Apply this to the ArgoCD HOST cluster, not the target:
+kubectl apply -f - <<EOF
+apiVersion: v1
+kind: Secret
+metadata:
+  name: <friendly-cluster-name>
+  namespace: argocd
+  labels:
+    argocd.argoproj.io/secret-type: cluster
+stringData:
+  name: <friendly-cluster-name>
+  server: ${SERVER}
+  config: |
+    {"bearerToken": "${TOKEN}", "tlsClientConfig": {"caData": "${CA}"}}
+EOF
 ```
 
-## What each permission class enables
+### What each permission class enables
 
 Use this table to decide whether `argocd/rbac.yaml`'s wildcard is acceptable,
 or whether `argocd/rbac-hardened.yaml` (or an even tighter custom role) fits
@@ -64,7 +135,7 @@ better.
 verb wildcard with an explicit list and narrowing `nonResourceURLs` to
 read-only discovery paths.
 
-## Token model
+### Token model
 
 The included `Secret` is of type `kubernetes.io/service-account-token` and is
 populated by the in-cluster TokenController with a non-expiring bearer token.
@@ -76,17 +147,18 @@ The ServiceAccount sets `automountServiceAccountToken: false` so that pods in
 the target cluster never mount this credential by accident — only external
 kubeconfig consumers (i.e. ArgoCD) ever see the token.
 
-### Rotation
+#### Rotation
 
 ```bash
+RBAC=argocd/rbac.yaml          # or whichever flavour you applied
 kubectl -n argocd delete secret argocd-manager-token
-kubectl apply -f argocd/rbac.yaml
+kubectl apply -f "$RBAC"
 kubectl -n argocd wait --for=jsonpath='{.data.token}' \
   secret/argocd-manager-token --timeout=60s
 # then re-run the generator and update the ArgoCD cluster Secret.
 ```
 
-## Self-bricking warning
+### Self-bricking warning
 
 Do **not** place the manifests in `argocd/` under an ArgoCD Application that
 manages the target cluster with `prune: true` and `selfHeal: true` unless you
