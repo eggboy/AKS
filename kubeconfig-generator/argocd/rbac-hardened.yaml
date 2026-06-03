@@ -1,0 +1,104 @@
+# ArgoCD external-cluster registration — hardened management mode.
+#
+# Same scope as `rbac.yaml` (manages every resource kind cluster-wide) but
+# removes verbs ArgoCD does not need for ordinary diff/sync:
+#   - escalate, bind            (RBAC privilege-escalation primitives)
+#   - impersonate               (acting as other identities)
+#   - approve, sign             (CSR / certificate issuance)
+#   - proxy                     (nodes/pods/services proxy subresources)
+#   - any future custom verbs   (no wildcard verb)
+#
+# It also narrows non-resource URL access to read-only discovery endpoints.
+#
+# Trade-off: an Application that syncs a Role/ClusterRole containing the
+# `escalate`/`bind` verbs, or a workload that needs `pods/exec` via a sync
+# hook, will fail with a Forbidden error. Switch to `rbac.yaml` if you hit
+# this and accept the broader permission set.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: argocd
+  labels:
+    app.kubernetes.io/name: argocd-manager
+    app.kubernetes.io/part-of: argocd
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: argocd-manager
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-manager
+    app.kubernetes.io/part-of: argocd
+automountServiceAccountToken: false
+secrets:
+  - name: argocd-manager-token
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: argocd-manager-token
+  namespace: argocd
+  annotations:
+    kubernetes.io/service-account.name: argocd-manager
+  labels:
+    app.kubernetes.io/name: argocd-manager
+    app.kubernetes.io/part-of: argocd
+type: kubernetes.io/service-account-token
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: argocd-manager-role
+  labels:
+    app.kubernetes.io/name: argocd-manager
+    app.kubernetes.io/part-of: argocd
+rules:
+  # Standard CRUD verbs on every resource in every apiGroup. Excludes
+  # escalate, bind, impersonate, approve, sign, proxy, and any custom verb.
+  - apiGroups: ["*"]
+    resources: ["*"]
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+      - deletecollection
+  # Pod eviction (used by some controllers during graceful drain on delete).
+  - apiGroups: [""]
+    resources: ["pods/eviction"]
+    verbs: ["create"]
+  # Read-only discovery / OpenAPI endpoints only.
+  - nonResourceURLs:
+      - /api
+      - /api/*
+      - /apis
+      - /apis/*
+      - /openapi
+      - /openapi/*
+      - /version
+      - /version/*
+      - /healthz
+      - /readyz
+      - /livez
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: argocd-manager-role-binding
+  labels:
+    app.kubernetes.io/name: argocd-manager
+    app.kubernetes.io/part-of: argocd
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: argocd-manager-role
+subjects:
+  - kind: ServiceAccount
+    name: argocd-manager
+    namespace: argocd

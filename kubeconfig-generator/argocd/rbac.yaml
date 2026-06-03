@@ -1,0 +1,102 @@
+# ArgoCD external-cluster registration — full management mode.
+#
+# Apply this to a TARGET cluster you want ArgoCD (running elsewhere) to manage.
+# The resulting ServiceAccount token is then placed into a kubeconfig (e.g. via
+# `kubeconfig_generator.py`) and registered with ArgoCD using `argocd cluster
+# add` or an equivalent Secret in ArgoCD's `argocd-cm`.
+#
+# Permission model: this matches what upstream `argocd cluster add` creates by
+# default — wildcard verbs on wildcard resources in wildcard apiGroups, plus
+# wildcard access to non-resource URLs. It is functionally equivalent to the
+# built-in `cluster-admin` ClusterRole. This is required when ArgoCD must be
+# able to sync arbitrary Kubernetes resources, including:
+#   - cluster-scoped resources (Namespaces, CRDs, ClusterRoles, ...)
+#   - resources of CRDs that are installed in the future
+#   - resources that need uncommon verbs (escalate, bind, impersonate, ...)
+#
+# If you do NOT need ArgoCD to manage RBAC that grants escalation primitives,
+# prefer the stricter manifest in `rbac-hardened.yaml`.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: argocd
+  labels:
+    app.kubernetes.io/name: argocd-manager
+    app.kubernetes.io/part-of: argocd
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: argocd-manager
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-manager
+    app.kubernetes.io/part-of: argocd
+# Pods in the target cluster must never mount this SA. It exists only so its
+# token can be exported into a kubeconfig consumed by an external ArgoCD.
+automountServiceAccountToken: false
+# Reference the long-lived token Secret below so that tools which discover
+# tokens via `.serviceAccount.secrets[]` (including the fallback path in
+# `kubeconfig_generator.py`) can find it.
+secrets:
+  - name: argocd-manager-token
+---
+# Long-lived, non-expiring ServiceAccount token.
+#
+# ArgoCD registers a target cluster once and reuses the token indefinitely.
+# A TokenRequest token (e.g. `kubectl create token --duration=8760h`) caps at
+# ~1 year on most clusters and would silently break the registration when it
+# expires. A manually-created Secret of type `kubernetes.io/service-account-token`
+# is populated by the TokenController and does not expire on its own.
+#
+# Treat the populated `.data.token` as a long-lived cluster-admin credential.
+# Rotate by deleting and re-creating this Secret, then re-running
+# `argocd cluster add` (or updating the cluster Secret in ArgoCD).
+apiVersion: v1
+kind: Secret
+metadata:
+  name: argocd-manager-token
+  namespace: argocd
+  annotations:
+    kubernetes.io/service-account.name: argocd-manager
+  labels:
+    app.kubernetes.io/name: argocd-manager
+    app.kubernetes.io/part-of: argocd
+type: kubernetes.io/service-account-token
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: argocd-manager-role
+  labels:
+    app.kubernetes.io/name: argocd-manager
+    app.kubernetes.io/part-of: argocd
+rules:
+  # Every verb on every resource in every apiGroup. Required to manage current
+  # and future resource kinds (including CRDs installed later by ArgoCD itself).
+  # Kubernetes RBAC is allow-only — there is no way to deny specific resources
+  # inside a wildcard, so any narrower formulation must enumerate verbs/resources.
+  - apiGroups: ["*"]
+    resources: ["*"]
+    verbs: ["*"]
+  # Discovery and OpenAPI endpoints. ArgoCD's controller calls these to build
+  # its API resource cache before computing diffs.
+  - nonResourceURLs: ["*"]
+    verbs: ["*"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: argocd-manager-role-binding
+  labels:
+    app.kubernetes.io/name: argocd-manager
+    app.kubernetes.io/part-of: argocd
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: argocd-manager-role
+subjects:
+  - kind: ServiceAccount
+    name: argocd-manager
+    namespace: argocd
