@@ -1,0 +1,41 @@
+apiVersion: pubsubplus.solace.com/v1beta1
+kind: PubSubPlusEventBroker
+metadata:
+  name: ha-example
+spec:
+  redundancy: true
+  image:
+    repository: eggboy/solace-pubsub-enterprise
+    tag: 10.25.15.4705
+    pullPolicy: IfNotPresent
+  storage:
+    useStorageClass: ultra-disk-sc
+    monitorNodeStorageSize: "10Gi"
+  nodeAssignment:
+    - name: Primary
+      spec:
+        nodeSelector:
+          workload: solace
+        tolerations:
+          - key: workload
+            operator: Equal
+            value: solace
+            effect: NoSchedule
+    - name: Backup
+      spec:
+        nodeSelector:
+          workload: solace
+        tolerations:
+          - key: workload
+            operator: Equal
+            value: solace
+            effect: NoSchedule
+    - name: Monitor
+      spec:
+        nodeSelector:
+          workload: solace
+        tolerations:
+          - key: workload
+            operator: Equal
+            value: solace
+            effect: NoSchedule
