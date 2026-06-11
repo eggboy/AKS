@@ -173,12 +173,12 @@ Grouped by the Istio mechanism. Every mapping below was validated live; the **St
 
 | NGINX annotation | Istio (HTTPRoute) | Status |
 |---|---|---|
-| `rewrite-target: /$2` for prefix-strip patterns | `URLRewrite` → `ReplacePrefixMatch` | PASS for the tested prefix pattern (`/vin`, `/vin/`, `/vin/...`; non-matching `/vinyl` did not route) |
-| `rewrite-target: /` | `URLRewrite` → `ReplacePrefixMatch: /` | PASS |
-| `proxy-set-headers` / header-add snippets | `RequestHeaderModifier` (`add`/`set`/`remove`) | Mechanism PASS; validate the actual source header ConfigMap in the target cluster |
+| `nginx.ingress.kubernetes.io/rewrite-target: /$2` for prefix-strip patterns | `URLRewrite` → `ReplacePrefixMatch` | PASS for the tested prefix pattern (`/vin`, `/vin/`, `/vin/...`; non-matching `/vinyl` did not route) |
+| `nginx.ingress.kubernetes.io/rewrite-target: /` | `URLRewrite` → `ReplacePrefixMatch: /` | PASS |
+| `proxy-set-headers` (ConfigMap) / header-add snippets | `RequestHeaderModifier` (`add`/`set`/`remove`) | Mechanism PASS; validate the actual source header ConfigMap in the target cluster |
 | basic total request timeout | rule `timeout.request` | PASS for total request timeout only; **not** NGINX read-idle parity |
-| `ssl-redirect / force-ssl-redirect: false` | omit HTTPS redirect (default) | PASS |
-| `ssl-redirect: true` (force HTTPS) | add an HTTP listener with a `RequestRedirect` filter → `scheme: https` | PASS |
+| `nginx.ingress.kubernetes.io/ssl-redirect` / `nginx.ingress.kubernetes.io/force-ssl-redirect: "false"` | omit HTTPS redirect (default) | PASS |
+| `nginx.ingress.kubernetes.io/ssl-redirect: "true"` (force HTTPS) | add an HTTP listener with a `RequestRedirect` filter → `scheme: https` | PASS |
 
 ```yaml
 # headers + timeout in one rule
@@ -198,10 +198,10 @@ Create **one DestinationRule per backend Service**; combine multiple policies in
 
 | NGINX annotation | DestinationRule field | Status |
 |---|---|---|
-| `affinity: cookie` + `session-cookie-name`/`-path` | `loadBalancer.consistentHash.httpCookie {name,path,ttl}` | PASS; path scoping and TTL expiry were validated |
-| `backend-protocol: HTTPS` | `trafficPolicy.tls.mode: SIMPLE` (gateway originates TLS) | PASS only when backend cert validation is configured correctly; self-signed backends require `insecureSkipVerify: true` or a trusted CA/SAN setup |
-| `proxy-connect-timeout` | `connectionPool.tcp.connectTimeout` | Qualified: timeout is per connect attempt; default gateway retries can make client-observed latency longer |
-| `keepalive-timeout` / upstream keepalive | `connectionPool.http.idleTimeout` + `maxRequestsPerConnection` | Qualified: validates upstream pool idle/reuse, not full downstream/client keepalive parity |
+| `nginx.ingress.kubernetes.io/affinity: cookie` + `nginx.ingress.kubernetes.io/session-cookie-name`/`-path` | `loadBalancer.consistentHash.httpCookie {name,path,ttl}` | PASS; path scoping and TTL expiry were validated |
+| `nginx.ingress.kubernetes.io/backend-protocol: HTTPS` | `trafficPolicy.tls.mode: SIMPLE` (gateway originates TLS) | PASS only when backend cert validation is configured correctly; self-signed backends require `insecureSkipVerify: true` or a trusted CA/SAN setup |
+| `nginx.ingress.kubernetes.io/proxy-connect-timeout` | `connectionPool.tcp.connectTimeout` | Qualified: timeout is per connect attempt; default gateway retries can make client-observed latency longer |
+| `keepalive-timeout` (ConfigMap) / upstream keepalive | `connectionPool.http.idleTimeout` + `maxRequestsPerConnection` | Qualified: validates upstream pool idle/reuse, not full downstream/client keepalive parity |
 
 ```yaml
 apiVersion: networking.istio.io/v1
@@ -212,10 +212,10 @@ spec:
   trafficPolicy:
     loadBalancer:
       consistentHash:
-        httpCookie: { name: SC_SESSION, path: /SC_WC, ttl: 3600s }   # ← affinity
+        httpCookie: { name: SC_SESSION, path: /SC_WC, ttl: 3600s }   # ← nginx.ingress.kubernetes.io/affinity
     connectionPool:
-      tcp:  { connectTimeout: 60s }                                  # ← proxy-connect-timeout
-      http: { idleTimeout: 86400s, maxRequestsPerConnection: 0 }     # ← keepalive
+      tcp:  { connectTimeout: 60s }                                  # ← nginx.ingress.kubernetes.io/proxy-connect-timeout
+      http: { idleTimeout: 86400s, maxRequestsPerConnection: 0 }     # ← keepalive-timeout (ConfigMap)
     # tls:
     #   mode: SIMPLE
     #   # Use either a trusted backend certificate/CA configuration, or deliberately skip
@@ -229,8 +229,8 @@ EnvoyFilter **is accepted and enforced** on user-namespace Gateway API data plan
 
 | NGINX annotation | EnvoyFilter | Status |
 |---|---|---|
-| `proxy-body-size: 10m` / `20m` / `0` | HTTP `buffer` filter + route-level `BufferPerRoute` overrides | PASS; 10 MB, 20 MB, and disabled/unlimited behavior were validated |
-| `proxy-read-timeout` read-idle semantics | route `idle_timeout` with total `timeout: 0s` | PASS via EnvoyFilter; HTTPRoute `timeout.request` is not equivalent |
+| `nginx.ingress.kubernetes.io/proxy-body-size: 10m` / `20m` / `0` | HTTP `buffer` filter + route-level `BufferPerRoute` overrides | PASS; 10 MB, 20 MB, and disabled/unlimited behavior were validated |
+| `nginx.ingress.kubernetes.io/proxy-read-timeout` read-idle semantics | route `idle_timeout` with total `timeout: 0s` | PASS via EnvoyFilter; HTTPRoute `timeout.request` is not equivalent |
 
 ```yaml
 apiVersion: networking.istio.io/v1alpha3
@@ -271,10 +271,10 @@ configPatches:
           envoy.filters.http.buffer:
             "@type": type.googleapis.com/envoy.extensions.filters.http.buffer.v3.BufferPerRoute
             buffer:
-              max_request_bytes: 20971520   # 20m; use disabled: true for proxy-body-size: "0"
+              max_request_bytes: 20971520   # 20m; use disabled: true for nginx.ingress.kubernetes.io/proxy-body-size: "0"
 ```
 
-For NGINX-style `proxy-read-timeout` read-idle behavior:
+For NGINX-style `nginx.ingress.kubernetes.io/proxy-read-timeout` read-idle behavior:
 
 ```yaml
 configPatches:
@@ -299,7 +299,7 @@ configPatches:
 | NGINX setting | Istio equivalent |
 |---|---|
 | `use-forwarded-headers: true` | gateway forwards `X-Forwarded-For`/`-Proto` by default |
-| mTLS (`auth-tls-secret` + `auth-tls-verify-client`) | **classic** `Gateway` `tls.mode: MUTUAL` + `credentialName` |
+| mTLS (`nginx.ingress.kubernetes.io/auth-tls-secret` + `nginx.ingress.kubernetes.io/auth-tls-verify-client`) | **classic** `Gateway` `tls.mode: MUTUAL` + `credentialName` |
 
 ---
 
@@ -332,7 +332,7 @@ spec:
 ## 8. Critical gotchas (read before cutover)
 
 ### 8.1 The 1 MB body-size limit disappears silently
-NGINX defaults `proxy-body-size` to **1 MB**. Envoy **streams request bodies with no implicit cap**, so after cutover large uploads that NGINX rejected will suddenly succeed. **Re-impose the limit explicitly** with the Buffer EnvoyFilter (§6.3). If different routes need `10m`, `20m`, and `0`, use route-level `BufferPerRoute`; a single gateway-wide cap is not enough.
+NGINX defaults `nginx.ingress.kubernetes.io/proxy-body-size` to **1 MB**. Envoy **streams request bodies with no implicit cap**, so after cutover large uploads that NGINX rejected will suddenly succeed. **Re-impose the limit explicitly** with the Buffer EnvoyFilter (§6.3). If different routes need `10m`, `20m`, and `0`, use route-level `BufferPerRoute`; a single gateway-wide cap is not enough.
 
 ### 8.2 EnvoyFilter is allowed on the add-on
 Arbitrary `EnvoyFilter` (e.g. the buffer filter) **is accepted and programmed** on user-namespace Gateway API data planes in the AKS Istio add-on — there is no admission webhook blocking it. Body-size and request-header-buffer mappings rely on this (validated live).
@@ -343,22 +343,30 @@ Gateway TLS/mTLS `credentialName`/`certificateRefs` secrets must be in **`aks-is
 ### 8.4 DestinationRule needs the backend in the mesh
 `DestinationRule` traffic policies (affinity, backend TLS, timeouts) require the **backend pods to have the Istio sidecar** (namespace labeled for injection). Without injection, the policy is silently ignored.
 
-### 8.5 `backend-protocol: HTTPS` must account for certificate validation
-`trafficPolicy.tls.mode: SIMPLE` originates TLS to the backend, but it does not automatically mean the upstream certificate is acceptable. In validation, a self-signed backend failed with `CERTIFICATE_VERIFY_FAILED` until `insecureSkipVerify: true` was added. Prefer a trusted CA/SAN configuration where possible; use `insecureSkipVerify` only when that matches the risk model.
+### 8.5 `nginx.ingress.kubernetes.io/backend-protocol: HTTPS` must account for certificate validation
+`trafficPolicy.tls.mode: SIMPLE` originates TLS to the backend, but it does not automatically mean the upstream certificate is acceptable. In validation, a self-signed backend failed with `CERTIFICATE_VERIFY_FAILED` until `insecureSkipVerify: true` was added. Real validation was then proven end-to-end: with a private CA (`credentialName`) plus `subjectAltNames`, a backend cert whose SAN matched returned `200`, while swapping in a CA-signed cert with the **wrong SAN** was rejected with `503`. Prefer this trusted-CA/SAN configuration; use `insecureSkipVerify` only for self-signed backends where that matches the risk model.
 
-### 8.6 `proxy-connect-timeout` is per-attempt, not always client-observed total
+### 8.6 `nginx.ingress.kubernetes.io/proxy-connect-timeout` is per-attempt, not always client-observed total
 `connectionPool.tcp.connectTimeout` was programmed correctly, but the generated route also had a default retry policy (`num_retries: 2`). A blackhole backend with a 2s connect timeout therefore took roughly 6–8s from the client perspective. If exact latency matters, control retries as well as `connectTimeout`.
 
-### 8.7 `proxy-read-timeout` is read-idle, not total request duration
+### 8.7 `nginx.ingress.kubernetes.io/proxy-read-timeout` is read-idle, not total request duration
 Gateway API `timeout.request` is a total request timeout. It cut off a streaming response even though chunks arrived within the configured interval. Use Envoy route `idle_timeout` (§6.3) when you need NGINX-like read-idle behavior.
 
 ### 8.8 Two annotations have no exact equivalent (PARTIAL — low risk)
 | NGINX annotation | Reality | Mitigation |
 |---|---|---|
-| `proxy-send-timeout` | No per-route upstream **send** timeout in Envoy | Covered transitively by `timeout.request` + `connectionPool`; usually no action needed |
-| `proxy-buffer-size` / `proxy-buffers-number` | Envoy `max_request_headers_kb` / `per_connection_buffer_limit_bytes` tune **request** buffers; NGINX **response-header** buffering differs | Set only if you hit large-response-header limits; not a functional blocker |
+| `nginx.ingress.kubernetes.io/proxy-send-timeout` | No per-route upstream **send** timeout in Envoy | Covered transitively by `timeout.request` + `connectionPool`; usually no action needed |
+| `nginx.ingress.kubernetes.io/proxy-buffer-size` / `nginx.ingress.kubernetes.io/proxy-buffers-number` | Envoy `max_request_headers_kb` / `per_connection_buffer_limit_bytes` tune **request** buffers; NGINX **response-header** buffering differs | Set only if you hit large-response-header limits; not a functional blocker |
 
 These are buffering/timeout tunables — nothing breaks without them.
+
+### 8.9 Rate limits (`nginx.ingress.kubernetes.io/limit-rps` / `nginx.ingress.kubernetes.io/limit-burst-multiplier` / `nginx.ingress.kubernetes.io/limit-connections`) are per-pod and per-listener
+Envoy's `local_ratelimit` filter (the closest equivalent to NGINX's `nginx.ingress.kubernetes.io/limit-rps` / `nginx.ingress.kubernetes.io/limit-burst-multiplier`) was validated, but two properties make it only a **qualified** match — both can silently make a migrated limit too permissive:
+
+- **The token bucket is per-Envoy-pod, not global.** Effective limit = configured `token_bucket` × gateway replica count. The auto-provisioned Gateway-API gateway ships with an **HPA** (`minReplicas: 2`), so a configured limit of 5 allowed ~10 rps in validation. `kubectl scale` is reverted by the HPA — patch `minReplicas`/`maxReplicas` if you need a known replica count. For a true global per-client-IP limit, use `envoy.filters.http.ratelimit` with an external rate-limit service instead of `local_ratelimit`.
+- **Route-scoped patches bind to one vhost (host:port).** An `HTTP_ROUTE` `local_ratelimit` patch matched on `app.example.com:80` does **not** apply to the same host over `:443`. In validation the HTTP listener enforced the limit (`429`s) while HTTPS on the identical host/route was unlimited. Duplicate the patch for the `:443` vhost (this applies to any route-scoped `EnvoyFilter`, including `BufferPerRoute`).
+
+`nginx.ingress.kubernetes.io/limit-connections` (per-client-IP **concurrent** connections) has no native equivalent — `envoy.filters.network.connection_limit` caps connections gateway-wide, not per-IP; per-IP needs a global rate-limit service keyed on remote address.
 
 ---
 
@@ -408,10 +416,10 @@ Allow **~10–15 s** after applying config before asserting — programming is n
 
 | Mechanism | Annotations it covers |
 |---|---|
-| **HTTPRoute filter** (native Gateway API) | rewrite-target, proxy-set-headers, total request timeout, ssl-redirect, header redirects |
-| **DestinationRule** (classic) | affinity cookie, backend-protocol HTTPS, proxy-connect-timeout, upstream keepalive/idle |
-| **EnvoyFilter** | proxy-body-size, route-specific body-size variants, NGINX-style read-idle timeout, request-header buffer tuning |
+| **HTTPRoute filter** (native Gateway API) | `nginx.ingress.kubernetes.io/rewrite-target`, `proxy-set-headers` (ConfigMap), total request timeout, `nginx.ingress.kubernetes.io/ssl-redirect`, `nginx.ingress.kubernetes.io/force-ssl-redirect`, header redirects |
+| **DestinationRule** (classic) | `nginx.ingress.kubernetes.io/affinity` cookie, `nginx.ingress.kubernetes.io/backend-protocol: HTTPS`, `nginx.ingress.kubernetes.io/proxy-connect-timeout`, upstream keepalive/idle |
+| **EnvoyFilter** | `nginx.ingress.kubernetes.io/proxy-body-size`, route-specific body-size variants, NGINX-style read-idle timeout (`nginx.ingress.kubernetes.io/proxy-read-timeout`), request-header buffer tuning, rate limiting (`nginx.ingress.kubernetes.io/limit-rps` / `nginx.ingress.kubernetes.io/limit-burst-multiplier` via `local_ratelimit` — per-pod & per-listener, see §8.9) |
 | **Classic Gateway** | mTLS (`MUTUAL`), force-HTTPS via dedicated listener |
-| **No exact equivalent (PARTIAL)** | proxy-send-timeout, proxy-buffer-size/buffers-number |
+| **No exact equivalent (PARTIAL)** | `nginx.ingress.kubernetes.io/proxy-send-timeout`, `nginx.ingress.kubernetes.io/proxy-buffer-size` / `nginx.ingress.kubernetes.io/proxy-buffers-number`, `nginx.ingress.kubernetes.io/limit-connections` (per-IP concurrency) |
 
 All mappings above were validated live on an AKS cluster running the Istio add-on with the standard-channel Gateway API. Use the checklist in §9 to re-verify each capability in your own environment before cutover.
