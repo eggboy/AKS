@@ -41,7 +41,7 @@ Every mapping in this guide was validated live on a real AKS cluster (Istio add-
    ```bash
    kubectl -n aks-istio-ingress get svc,pod -l istio=aks-istio-ingressgateway-external
    ```
-4. **Namespaces are part of the mesh** (sidecar injection) so DestinationRules apply to your backends:
+4. *(Optional)* Add app namespaces to the mesh. **DestinationRules do not require this** — they are applied by the ingress-gateway proxy (see §8.4). Inject backends only if you want sidecar telemetry/policy or `tls.mode: ISTIO_MUTUAL` backend mTLS:
    ```bash
    kubectl label namespace <app-ns> istio.io/rev=asm-1-27 --overwrite
    ```
@@ -298,7 +298,7 @@ configPatches:
 
 | NGINX setting | Istio equivalent |
 |---|---|
-| `use-forwarded-headers: true` | gateway forwards `X-Forwarded-For`/`-Proto` by default |
+| `use-forwarded-headers: true` | Gateway **appends** `X-Forwarded-For`/`-Proto` by default. To actually **trust an upstream proxy's client IP** (the point of this flag — e.g. behind Azure LB + Front Door), set `gatewayTopology.numTrustedProxies` to the number of proxies in front of the gateway, via MeshConfig or the gateway Pod's `proxy.istio.io/config` annotation |
 | mTLS (`nginx.ingress.kubernetes.io/auth-tls-secret` + `nginx.ingress.kubernetes.io/auth-tls-verify-client`) | **classic** `Gateway` `tls.mode: MUTUAL` + `credentialName` |
 
 ---
@@ -340,8 +340,8 @@ Arbitrary `EnvoyFilter` (e.g. the buffer filter) **is accepted and programmed** 
 ### 8.3 Secret namespace matters
 Gateway TLS/mTLS `credentialName`/`certificateRefs` secrets must be in **`aks-istio-ingress`**, not the app namespace. SDS won't load them otherwise (see §3).
 
-### 8.4 DestinationRule needs the backend in the mesh
-`DestinationRule` traffic policies (affinity, backend TLS, timeouts) require the **backend pods to have the Istio sidecar** (namespace labeled for injection). Without injection, the policy is silently ignored.
+### 8.4 DestinationRule applies at the gateway, not the backend
+`DestinationRule` traffic policies are enforced by the **client-side proxy that originates the connection** — here the **ingress gateway**, which is always in the mesh. So affinity (`consistentHash`), backend-TLS origination (`tls.mode: SIMPLE`/`MUTUAL`), and connection-pool timeouts apply **whether or not the backend pods are injected** — the backend just has to be a normal Kubernetes `Service` in the registry. The **one exception is `tls.mode: ISTIO_MUTUAL`** (mesh mTLS), which *does* require the backend to have a sidecar to terminate the mTLS. Validated live: `SIMPLE` TLS to a self-signed backend (§8.5) and `connectTimeout` against a blackhole backend (§8.6) both worked with no backend injection.
 
 ### 8.5 `nginx.ingress.kubernetes.io/backend-protocol: HTTPS` must account for certificate validation
 `trafficPolicy.tls.mode: SIMPLE` originates TLS to the backend, but it does not automatically mean the upstream certificate is acceptable. In validation, a self-signed backend failed with `CERTIFICATE_VERIFY_FAILED` until `insecureSkipVerify: true` was added. Real validation was then proven end-to-end: with a private CA (`credentialName`) plus `subjectAltNames`, a backend cert whose SAN matched returned `200`, while swapping in a CA-signed cert with the **wrong SAN** was rejected with `503`. Prefer this trusted-CA/SAN configuration; use `insecureSkipVerify` only for self-signed backends where that matches the risk model.
